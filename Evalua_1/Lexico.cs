@@ -59,9 +59,9 @@ namespace Evalua
         public Lexico()
         {
             linea = 1;
-            string path = "C:\\Users\\marco\\Desktop\\Evalua_1\\prueba.cpp";
+            string path = "C:\\Users\\marco\\Desktop\\Evalua\\prueba.cpp";
             bool existencia = File.Exists(path);
-            log = new StreamWriter("C:\\Users\\marco\\Desktop\\Evalua_1\\prueba.Log"); 
+            log = new StreamWriter("C:\\Users\\marco\\Desktop\\Evalua\\prueba.Log"); 
             log.AutoFlush = true;
             //log.WriteLine("Primer constructor");
             log.WriteLine("Archivo: prueba.cpp");

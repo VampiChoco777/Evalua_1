@@ -4,13 +4,14 @@ using System.Collections.Generic;
 //                  dentro de la cadena
 //Requerimiento 2.- Marcar los errores sintacticos cuando la variable no exista
 //Requerimiento 3.- Modificar el valor de la variable en la asignacion
+//Requerimiento 4.- Obtener el valor de la variable cuando se requiera y pragramar el valor getValor()
+//Requerimiento 5.- Modificar el valor de la variable en el scanf()
 namespace Evalua
 {
     public class Lenguaje : Sintaxis
     {
         List <Variable> variables = new List<Variable>();
         Stack<float> stack = new Stack<float>();
-
         public Lenguaje()
         {
 
@@ -19,20 +20,19 @@ namespace Evalua
         {
 
         }
-
         private void addVariable(String nombre,Variable.TipoDato tipo)
         {
             variables.Add(new Variable(nombre, tipo));
         }
-
         private void displayVariables()
         {
+            log.WriteLine(" ");
+            log.WriteLine("Variables: ");
             foreach (Variable v in variables)
             {
                 log.WriteLine(v.getNombre()+" "+v.getTipo()+" "+v.getValor());
             }
         }
-
         private bool existeVariable(string nombre)
         {
             foreach (Variable v in variables)
@@ -44,6 +44,28 @@ namespace Evalua
             }
             return false;
         }
+        private void ModificaValor(string nombre, float nuevoValor)
+        {
+            foreach(Variable v in variables)
+            {
+                if(v.getNombre().Equals(nombre))
+                {
+                    v.setValor(nuevoValor);
+                }
+            }
+
+        }
+        private float getValor(string nombreVariable)
+        {
+            foreach (Variable v in variables)
+            {
+                if(v.getNombre().Equals(nombreVariable))
+                {
+                    return v.getValor();
+                }
+            }
+            return 0; 
+        }
         //Programa  -> Librerias? Variables? Main
         public void Programa()
         {
@@ -52,7 +74,6 @@ namespace Evalua
             Main();
             displayVariables();
         }
-
         //Librerias -> #include<identificador(.h)?> Librerias?
         private void Libreria()
         {
@@ -71,7 +92,6 @@ namespace Evalua
                 Libreria();
             }
         }
-
          //Variables -> tipo_dato Lista_identificadores; Variables?
         private void Variables()
         {
@@ -89,7 +109,6 @@ namespace Evalua
                 Variables();
             }
         }
-
          //Lista_identificadores -> identificador (,Lista_identificadores)?
         private void Lista_identificadores(Variable.TipoDato tipo)
         {
@@ -121,7 +140,6 @@ namespace Evalua
             }    
             match("}"); 
         }
-
         //ListaInstrucciones -> Instruccion ListaInstrucciones?
         private void ListaInstrucciones()
         {
@@ -131,7 +149,6 @@ namespace Evalua
                 ListaInstrucciones();
             }
         }
-
         //ListaInstruccionesCase -> Instruccion ListaInstruccionesCase?
         private void ListaInstruccionesCase()
         {
@@ -141,7 +158,6 @@ namespace Evalua
                 ListaInstruccionesCase();
             }
         }
-
         //Instruccion -> Printf | Scanf | If | While | do while | For | Switch | Asignacion
         private void Instruccion()
         {
@@ -183,14 +199,24 @@ namespace Evalua
         private void Asignacion()
         {
             //Requerimiento 2.- Si no existe la variable levanta la excepcion
-            log.WriteLine();
-            log.Write(getContenido()+" = ");
-            match(Tipos.Identificador);
-            match(Tipos.Asignacion);
-            Expresion();
-            match(";");
-            log.Write("= "+stack.Pop());
-            log.WriteLine();
+            if(existeVariable(getContenido()))
+            {
+                log.WriteLine();
+                log.Write(getContenido()+" = ");
+                string nombre = getContenido();
+                match(Tipos.Identificador);
+                match(Tipos.Asignacion);
+                Expresion();
+                match(";");
+                float resultado = stack.Pop();
+                log.Write("= "+resultado);
+                log.WriteLine();
+                ModificaValor(nombre,resultado);
+            }
+            else
+            {
+                throw new Error("Error de sintaxis, no existe la variable <" +getContenido()+"> en linea: "+linea, log);
+            }
         }
 
         //While -> while(Condicion) bloque de instrucciones | instruccion
@@ -200,7 +226,7 @@ namespace Evalua
             match("(");
             Condicion();
             match(")");
-             if (getContenido() == "{") 
+            if (getContenido() == "{") 
             {
                 BloqueInstrucciones();
             }
@@ -251,16 +277,24 @@ namespace Evalua
         //Incremento -> Identificador ++ | --
         private void Incremento()
         {
+            string variable = getContenido();
             //Requerimiento 2.- Si no existe la variable levanta la excepcion
-            match(Tipos.Identificador);
-            if(getContenido() == "+")
-            {
-                match("++");
+            if(existeVariable(variable)){
+                match(Tipos.Identificador);
+                if(getContenido() == "++")
+                {
+                    match("++");
+                    ModificaValor(variable,getValor(variable)+1);
+                }
+                else
+                {
+                    match("--");
+                    ModificaValor(variable,getValor(variable)-1);
+                }
+            }else{
+                throw new Error("Error de sintaxis, no existe la variable <" +getContenido()+"> en linea: "+linea, log);
             }
-            else
-            {
-                match("--");
-            }
+            
         }
 
         //Switch -> switch (Expresion) {Lista de casos} | (default: )
@@ -269,6 +303,7 @@ namespace Evalua
             match("switch");
             match("(");
             Expresion();
+            stack.Pop();
             match(")");
             match("{");
             ListaDeCasos();
@@ -293,6 +328,7 @@ namespace Evalua
         {
             match("case");
             Expresion();
+            stack.Pop();
             match(":");
             ListaInstruccionesCase();
             if(getContenido() == "break")
@@ -310,8 +346,10 @@ namespace Evalua
         private void Condicion()
         {
             Expresion();
+            stack.Pop();
             match(Tipos.OperadorRelacional);
             Expresion();
+            stack.Pop();
         }
 
         //If -> if(Condicion) bloque de instrucciones (else bloque de instrucciones)?
@@ -343,25 +381,60 @@ namespace Evalua
             }
         }
 
-        //Printf -> printf(cadena);
+        //Printf -> printf(cadena|expresion);
         private void Printf()
         {
             match("printf");
             match("(");
-            Console.Write(getContenido());
-            match(Tipos.Cadena);
+            string arreglo = getContenido();
+                  if(getClasificacion() == Tipos.Cadena)
+                  { 
+                    if(arreglo.Contains("\\n"))
+                    {
+                        arreglo = arreglo.Replace("\\n","\n");
+                    }
+                    if(arreglo.Contains("\\t"))
+                    {
+                        arreglo = arreglo.Replace("\\t","\t");
+                    }
+                    for( int i = 1; i < arreglo.Length-1;i++)
+                    {
+                        Console.Write(arreglo[i]); 
+                    }
+                    match(Tipos.Cadena);
+                //Requerimiento 1
+                  }
+                  else
+                  {
+                    Expresion();
+                    Console.Write(stack.Pop());
+                  }           
             match(")");
             match(";");
         }
 
-        //Scanf -> scanf(cadena);
+        //Scanf -> scanf(cadena, &, identf);
         private void Scanf()    
         {
             match("scanf");
             match("(");
             match(Tipos.Cadena);
-            match(")");
-            match(";");
+            match(",");
+            match("&");
+            if(existeVariable(getContenido()))
+            {
+                string val = "" + Console.ReadLine();
+                ModificaValor(getContenido(),float.Parse(val));
+                match(Tipos.Identificador);  
+                match(")");
+                match(";");
+            }
+            else
+            {
+                throw new Error("Error de sintaxis, no existe la variable <" +getContenido()+"> en linea: "+linea, log);
+            }    
+            //Requerimmiento 2.- Si no existe la variable, levanta la excepcion
+            //Requerimiento 5.- Modificar el valor de la variable
         }
 
         //Main      -> void main() Bloque de instrucciones
@@ -442,7 +515,16 @@ namespace Evalua
             else if (getClasificacion() == Tipos.Identificador)
             {
                 //Requerimiento 2.- Si no existe la variable levanta la excepcion
-                match(Tipos.Identificador);
+                if(existeVariable(getContenido()))
+                {
+                    log.Write(getContenido() + " " );
+                    stack.Push(getValor(getContenido()));
+                    match(Tipos.Identificador);
+                }
+                else
+                {
+                    throw new Error("Error de sintaxis, no existe la variable <" +getContenido()+"> en linea: "+linea, log);
+                }            
             }
             else
             {
